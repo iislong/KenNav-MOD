@@ -212,7 +212,8 @@ const STORAGE_KEYS = {
   SEARCH_ENGINE: 'searchEngine',
   QUICK_ACCESS: 'quickAccess',
   BOOKMARK_CONFIG: 'bookmarkConfig',
-  WEBDAV_CONFIG: 'webdavConfig'
+  WEBDAV_CONFIG: 'webdavConfig',
+  LINK_OPEN_MODE: 'linkOpenMode'   // ← 新增
 };
 
 // 修改加密相关函数
@@ -269,6 +270,24 @@ async function getWebDAVConfig() {
   };
 }
 
+// ==================== 链接打开方式配置（新增） ====================
+const DEFAULT_LINK_OPEN_MODE = 'current';
+
+// 获取链接打开方式
+function getLinkOpenMode() {
+  const stored = localStorage.getItem(STORAGE_KEYS.LINK_OPEN_MODE);
+  return stored || DEFAULT_LINK_OPEN_MODE;
+}
+
+// 保存链接打开方式
+function saveLinkOpenMode(mode) {
+  if (['current', 'new'].includes(mode)) {
+    localStorage.setItem(STORAGE_KEYS.LINK_OPEN_MODE, mode);
+    return true;
+  }
+  return false;
+}
+
 // 导出这些函数和变量
 export { 
   bookmarkConfig,
@@ -285,4 +304,6 @@ export {
   getWebDAVConfig,
   saveWebDAVConfig,
   generateId,
+  getLinkOpenMode,      // ← 新增
+  saveLinkOpenMode      // ← 新增
 };
