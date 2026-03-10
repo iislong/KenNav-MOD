@@ -1274,6 +1274,23 @@
       font-size: 1rem;
     }
 
+	 /* 新增一点开关样式 */
+	.toggle-switch {
+	  display: flex;
+	  align-items: center;
+	  gap: 12px;
+	  font-size: 1.05rem;
+	  color: #444;
+	  margin: 1.2rem 0;
+	  cursor: pointer;
+	}
+
+	.toggle-switch input[type="checkbox"] {
+	  width: 20px;
+	  height: 20px;
+	  accent-color: #6366f1;
+	}
+
     .settings-buttons {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -2047,13 +2064,26 @@
       getWebDAVConfig,
       saveWebDAVConfig,
       generateId,  // 添加 generateId 导入
-	  getLinkOpenMode,     // ← 新增
-      saveLinkOpenMode     // ← 新增
+	  getOpenInNewTab,       // ← 新增
+	  setOpenInNewTab,        // ← 新增
     } from './config.js';
     
     // 定义全局变量
     const DEFAULT_ICON = '🔗';
 
+	// 统一打开链接的函数（受开关控制）
+	function openLink(url) {
+	  if (!url) return;
+	  
+	  const openNewTab = getOpenInNewTab();
+	  
+	  if (openNewTab) {
+		window.open(url, '_blank', 'noopener,noreferrer');
+	  } else {
+		window.location.href = url;
+	  }
+	}
+	
     // 初始化搜索功能
     function initializeSearch() {
       const searchBox = document.querySelector('.search-box');
@@ -2089,22 +2119,21 @@
       });
     }
     
-    // 执行搜索
-    function performSearch() {
-      const searchBox = document.querySelector('.search-box');
-      const query = searchBox.value.trim();
-      if (!query) return;
-
-      const engines = getSearchEngines();
-      const currentEngineId = getStoredSearchEngine();
-      const engine = engines.find(e => e.id === currentEngineId);
-      
-      if (engine) {
-        const searchUrl = engine.url.replace('{q}', encodeURIComponent(query));
-        // 修改这里，移除 '_blank'
-        window.location.href = searchUrl;
-      }
-    }
+	// 执行搜索
+	function performSearch() {
+	  const searchBox = document.querySelector('.search-box');
+	  const query = searchBox.value.trim();
+	  if (!query) return;
+	  
+	  const engines = getSearchEngines();
+	  const currentEngineId = getStoredSearchEngine();
+	  const engine = engines.find(e => e.id === currentEngineId);
+	 
+	  if (engine) {
+		const searchUrl = engine.url.replace('{q}', encodeURIComponent(query));
+		openLink(searchUrl);          // ← 改成这一行
+	  }
+	}
 
     // 初始化搜索引擎下拉菜单
       function initEngineDropdown() {
@@ -2142,8 +2171,7 @@
     // 页面加载完成后初始化
     window.addEventListener('DOMContentLoaded', () => {
       initializeSearch();
-      initializeSiteSearch();   
-      initializeLinkOpenMode();
+      initializeSiteSearch();
       initializeBookmarks();
       initializeEventListeners();
     });
@@ -2627,20 +2655,42 @@
         </div>
       `).join('');
 
-            // 生成链接按钮（已使用 createLinkElement 优化）
+      // 生成链接按钮
       currentBookmarkConfig.categories.forEach(category => {
         const content = document.getElementById(category.id);
         if (!content) return;
         
         const buttonGrid = content.querySelector('.button-grid');
-        buttonGrid.innerHTML = category.links.map(link => 
-          createLinkElement(link, 'bookmark')
-        ).join('');
+        buttonGrid.innerHTML = category.links.map(link => `
+          <a href="${link.url}" 
+             class="button" 
+             data-id="${link.id}"
+             data-category-id="${category.id}"
+             oncontextmenu="showContextMenu(event, this); return false;">
+            <div class="button-content">
+              <div class="button-main">
+                ${isValidUrl(link.icon) 
+                  ? `<img src="${link.icon}" alt="" class="quick-link-icon">` 
+                  : `<span class="quick-link-icon">${link.icon}</span>`
+                } 
+                <span>${link.name}</span>
+              </div>
+              ${link.note ? `<div class="button-note">${link.note}</div>` : ''}
+            </div>
+          </a>
+        `).join('');
       });
 
+	  // 拦截所有分类书签的 <a> 点击
+	  document.querySelectorAll('.button-grid .button').forEach(a => {
+	    a.addEventListener('click', (e) => {
+		  e.preventDefault();           // 阻止默认跳转
+		  openLink(a.href);             // 用 openLink 控制新/当前标签
+	    });
+	  });
+	  
       // 初始化标签事件
       initializeTabEvents();
-	  
     }
 
     // 修改 initializeTabEvents 函数
@@ -3388,16 +3438,11 @@
         }
       }
 
-      // 跳转到选中的链接（支持新标签页）
+      // 跳转到选中的链接
       function navigateToSelected() {
         if (selectedIndex >= 0 && selectedIndex < searchResultItems.length) {
           const url = searchResultItems[selectedIndex].dataset.url;
-          const mode = getLinkOpenMode();
-          if (mode === 'new') {
-            window.open(url, '_blank', 'noopener,noreferrer');
-          } else {
-            window.location.href = url;
-          }
+          openLink(url);
         }
       }
 
@@ -3437,18 +3482,13 @@
         }
       });
 
-      // 点击结果项跳转（支持新标签页）
-      searchResults.addEventListener('click', (e) => {
-        const resultItem = e.target.closest('.search-result-item');
-        if (resultItem) {
-          const mode = getLinkOpenMode();
-          if (mode === 'new') {
-            window.open(resultItem.dataset.url, '_blank', 'noopener,noreferrer');
-          } else {
-            window.location.href = resultItem.dataset.url;
-          }
-        }
-      });
+	  // 点击结果项跳转
+	  searchResults.addEventListener('click', (e) => {
+	    const resultItem = e.target.closest('.search-result-item');
+	    if (resultItem) {
+		  openLink(resultItem.dataset.url);
+	    }
+	  });
 
       // 点击空白处关闭
       searchModal.addEventListener('click', (e) => {
@@ -3466,6 +3506,27 @@
       });
     }
 
+	function initOpenInNewTabSetting() {
+	  const toggle = document.getElementById('openInNewTabToggle');
+	  if (!toggle) return;
+
+	  // 初始化状态
+	  toggle.checked = getOpenInNewTab();
+
+	  // 监听变化并保存
+	  toggle.addEventListener('change', () => {
+		setOpenInNewTab(toggle.checked);
+	  });
+	}
+
+	// 在 DOMContentLoaded 或页面初始化函数中调用
+	document.addEventListener('DOMContentLoaded', () => {
+	  // ... 其他初始化代码
+	  initOpenInNewTabSetting();
+	  // initializeSiteSearch();
+	  // ...
+	});
+	
     // 添加 URL 验证函数
     function isValidUrl(str) {
       try {
@@ -3474,79 +3535,6 @@
         return false;
       }
     }
-	
-    // ==================== 统一链接创建辅助函数（优化版） ====================
-
-    /**
-     * 统一创建链接元素（自动处理 target/rel/icon/备注）
-     * @param {Object} link - {id, url, name, icon, note?}
-     * @param {'bookmark'|'quick'} type - 书签或快速访问
-     * @returns {string} 完整 HTML 字符串
-     */
-	// 获取当前应使用的 target（必需函数）
-    function getLinkTarget() {
-      const mode = getLinkOpenMode();
-      return mode === 'new' ? '_blank' : '_self';
-    }
-    function createLinkElement(link, type = 'bookmark') {
-      const target = getLinkTarget();
-      const rel = target === '_blank' ? 'noopener noreferrer' : '';
-      const isQuick = type === 'quick';
-
-      const iconHtml = isValidUrl(link.icon)
-        ? `<img src="${link.icon}" alt="" class="quick-link-icon">`
-        : `<span class="quick-link-icon">${link.icon || DEFAULT_ICON}</span>`;
-
-      const noteHtml = link.note
-        ? `<div class="${isQuick ? 'quick-link-note' : 'button-note'}">${link.note}</div>`
-        : '';
-
-      const className = isQuick ? 'quick-link' : 'button';
-
-      return `
-        <a href="${link.url}" 
-           class="${className}" 
-           target="${target}" 
-           rel="${rel}"
-           data-id="${link.id || ''}">
-          <div class="${isQuick ? 'quick-link-content' : 'button-content'}">
-            <div class="${isQuick ? 'quick-link-main' : 'button-main'}">
-              ${iconHtml}
-              <span class="${isQuick ? 'quick-link-name' : ''}">${link.name}</span>
-            </div>
-            ${noteHtml}
-          </div>
-          ${isQuick ? `
-          <div class="edit-actions">
-            <button class="edit-action-button edit" onclick="editQuickAccess('${link.id}')">✏️</button>
-            <button class="edit-action-button delete" onclick="deleteQuickAccessLink('${link.id}');event.stopImmediatePropagation()">🗑</button>
-          </div>` : ''}
-        </a>
-      `;
-    }
-
-    // 切换模式后重新渲染当前内容（最简洁可靠的方式）
-    function reRenderCurrentContent() {
-      const activeTab = document.querySelector('.tab.active') || document.querySelector('.content.active');
-      if (activeTab) {
-        initializeBookmarks(); // 刷新所有书签（包含快速访问）
-      }
-    }
-
-    // 初始化并绑定设置
-    function initializeLinkOpenMode() {
-      const select = document.getElementById('linkOpenModeSelect');
-      if (!select) return;
-
-      select.value = getLinkOpenMode();
-
-      select.addEventListener('change', () => {
-        saveLinkOpenMode(select.value);
-        reRenderCurrentContent(); // ← 自动刷新，无需遍历 DOM
-        console.log(`✓ 链接打开方式已切换为：${select.value === 'new' ? '新标签页' : '当前标签页'}`);
-      });
-    }
-   
   </script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 </head>
@@ -3721,17 +3709,15 @@
             <span>添加搜索引擎</span>
           </button>
         </div>
-        <!-- ==================== 新增：链接打开方式 ==================== -->
-        <div class="settings-section">
-          <h4>链接打开方式</h4>
-          <div class="form-group">
-            <label>点击导航链接时</label>
-            <select id="linkOpenModeSelect">
-              <option value="current">当前标签页打开（默认）</option>
-              <option value="new">新标签页打开</option>
-            </select>
-          </div>
-		</div>  
+
+		<div class="settings-section">
+		  <h4>链接打开方式</h4>
+		  <label class="toggle-switch">
+			<input type="checkbox" id="openInNewTabToggle">
+			<span>在新标签页打开</span>
+		  </label>
+		</div>
+		
         <div class="settings-section">
           <h4>数据管理</h4>
           <div class="settings-buttons">

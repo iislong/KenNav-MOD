@@ -213,7 +213,7 @@ const STORAGE_KEYS = {
   QUICK_ACCESS: 'quickAccess',
   BOOKMARK_CONFIG: 'bookmarkConfig',
   WEBDAV_CONFIG: 'webdavConfig',
-  LINK_OPEN_MODE: 'linkOpenMode'   // ← 新增
+  OPEN_IN_NEW_TAB: 'openInNewTab'   // ← 新增这一行
 };
 
 // 修改加密相关函数
@@ -270,22 +270,15 @@ async function getWebDAVConfig() {
   };
 }
 
-// ==================== 链接打开方式配置（新增） ====================
-const DEFAULT_LINK_OPEN_MODE = 'current';
-
-// 获取链接打开方式
-function getLinkOpenMode() {
-  const stored = localStorage.getItem(STORAGE_KEYS.LINK_OPEN_MODE);
-  return stored || DEFAULT_LINK_OPEN_MODE;
+// 获取是否在新标签页打开（默认 false = 当前标签页）
+function getOpenInNewTab() {
+  const val = localStorage.getItem(STORAGE_KEYS.OPEN_IN_NEW_TAB);
+  return val === 'true';
 }
 
-// 保存链接打开方式
-function saveLinkOpenMode(mode) {
-  if (['current', 'new'].includes(mode)) {
-    localStorage.setItem(STORAGE_KEYS.LINK_OPEN_MODE, mode);
-    return true;
-  }
-  return false;
+// 设置是否在新标签页打开
+function setOpenInNewTab(value) {
+  localStorage.setItem(STORAGE_KEYS.OPEN_IN_NEW_TAB, value ? 'true' : 'false');
 }
 
 // 导出这些函数和变量
@@ -304,6 +297,6 @@ export {
   getWebDAVConfig,
   saveWebDAVConfig,
   generateId,
-  getLinkOpenMode,      // ← 新增
-  saveLinkOpenMode      // ← 新增
+  getOpenInNewTab,       // ← 新增
+  setOpenInNewTab,       // ← 新增
 };
